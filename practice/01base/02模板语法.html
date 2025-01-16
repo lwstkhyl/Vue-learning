@@ -6,20 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
     <script src="../../vue_js/vue.js"></script>
-    <!-- <script src="../../vue_js/vue.min.js"></script> -->
 </head>
 
 <body>
     <div id="root">
-        <h1>Hello, {{name}}</h1>
+        <h1>{{text}}</h1>
+        <p :style="p.css">{{p.text}}</p>
     </div>
 </body>
 <script>
     new Vue({
-        el: "#root", //指定容器
-        // el:document.getElementById("root") //也可以，但使用较少
+        el: "#root",
         data: {
-            name: "Vue"
+            text: "我是h1标签",
+            p: {
+                text: "我是p标签",
+                css: "color:blue;"
+            }
         }
     });
 </script>
