@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="../../vue_js/vue.js"></script>
+</head>
+
+<body>
+    <div id="root">
+        <h2>今天天气为{{weather}}</h2>
+        <button @click="is_hot = !is_hot;">切换天气</button>
+    </div>
+</body>
+<script>
+    const vm = new Vue({
+        el: "#root",
+        data: {
+            is_hot: true
+        },
+        computed: {
+            weather() {
+                return this.is_hot ? "热" : "冷";
+            }
+        }
+    });
+</script>
+
+</html>
