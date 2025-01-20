@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="../../vue_js/vue.js"></script>
+</head>
+
+<body>
+    <div id="root">
+        姓：<input type="text" v-model="name.firstname"><br>
+        名：<input type="text" v-model="name.lastname"><br>
+        姓名：<span>{{fullname}}</span>
+    </div>
+</body>
+<script>
+    const vm = new Vue({
+        el: "#root",
+        data: {
+            name: {
+                firstname: "",
+                lastname: ""
+            },
+            fullname: ""
+        },
+        watch: {
+            name: {
+                deep: true,
+                immediate: true,
+                handler(newVal, oldVal) {
+                    const first = newVal.firstname.slice(0, 3);
+                    const last = newVal.lastname;
+                    setTimeout(() => {
+                        this.fullname = `${first}·${last}`;
+                    }, 1000);
+                }
+            }
+        }
+    });
+</script>
+
+</html>
