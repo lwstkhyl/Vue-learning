@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="../../vue_js/vue.js"></script>
+</head>
+<div id="root">
+    <form>
+        <label for="account">账号：</label><input type="text" id="account" v-model.trim="user_info.account"> <br><br>
+        <label for="password">密码：</label><input type="password" id="password" v-model="user_info.password"> <br><br>
+        <label for="age">年龄：</label><input type="number" id="age" v-model.number="user_info.age"> <br><br>
+        性别：
+        <label for="male">男</label><input type="radio" name="sex" value="male" id="male" v-model="user_info.sex">
+        <label for="female">女</label><input type="radio" name="sex" value="female" id="female" v-model="user_info.sex">
+        <br><br>
+        爱好：
+        <label for="study">学习</label><input type="checkbox" value="study" id="study" v-model="user_info.hobby">
+        <label for="game">打游戏</label><input type="checkbox" value="game" id="game" v-model="user_info.hobby">
+        <label for="eat">吃饭</label><input type="checkbox" value="eat" id="eat" v-model="user_info.hobby"> <br><br>
+        所属校区：
+        <select v-model="user_info.city">
+            <option value="beijing">北京</option>
+            <option value="shanghai">上海</option>
+            <option value="shenzhen">深圳</option>
+            <option value="wuhan">武汉</option>
+        </select> <br><br>
+        <label for="other_info">其他信息：</label><textarea id="other_info" v-model.lazy="user_info.other_info"></textarea>
+        <br><br>
+        <input type="checkbox" v-model="user_info.agree">阅读并接受<a href="http://www.atguigu.com">《用户协议》</a>
+        <button @click.prevent="submit">提交</button>
+    </form>
+</div>
+<script>
+    const vm = new Vue({
+        el: "#root",
+        data: {
+            user_info: {
+                account: "",
+                password: "",
+                age: "",
+                sex: "male", //设置默认值
+                hobby: [],
+                city: "beijing",
+                other_info: "",
+                agree: false
+            }
+        },
+        methods: {
+            submit() {
+                for (const n in this.user_info) {
+                    console.log(`${n}:${this.user_info[n]}`);
+                }
+                console.log(JSON.stringify(this.user_info)); //也可以转成JSON格式
+            }
+        }
+    });
+</script>
+
+</html>
