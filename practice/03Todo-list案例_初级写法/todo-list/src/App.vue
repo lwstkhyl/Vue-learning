@@ -4,7 +4,7 @@
 			<div class="todo-wrap">
 				<TodoHeader :addTodo="addTodo"/>
 				<TodoList :todos="todos" :checkTodo="checkTodo" :deleteTodo="deleteTodo"/>
-				<TodoFooter :todos="todos"/>
+				<TodoFooter :todos="todos" :checkAllTodo="checkAllTodo" :deleteAllDone="deleteAllDone"/>
 			</div>
 		</div>
 	</div>
@@ -20,11 +20,7 @@
 		components: {TodoHeader,TodoList,TodoFooter},
 		data() {
             return {
-                todos:[
-					{id:'001', title:"吃饭", done:true},
-					{id:'002', title:"睡觉", done:false},
-					{id:'003', title:"写作业", done:false},
-				]
+                todos:JSON.parse(localStorage.getItem('todos'))||[]
             }
         },
 		methods: {
@@ -36,12 +32,30 @@
 					if(todo.id===id) todo.done = !todo.done;
 				});
 			},
-			deleteTodo(id){
+			deleteTodo(id){ //删除指定事项
 				this.todos = this.todos.filter(todo=>{
 					return todo.id !== id;
 				});
+			},
+			checkAllTodo(isCheck){ //全选按钮
+				this.todos.forEach(todo=>{
+					todo.done = isCheck;
+				});
+			},
+			deleteAllDone(){ //删掉所有已完成
+				this.todos = this.todos.filter(todo=>{
+					return !todo.done;
+				});
 			}
 		},
+		watch:{
+			todos:{
+				deep:true, //必须开启深度监视，否则属性值变化监测不到
+				handler(v){
+					localStorage.setItem('todos', JSON.stringify(v));
+				}
+			}
+		}
 	}
 </script>
 
