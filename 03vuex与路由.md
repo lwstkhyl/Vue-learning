@@ -13,6 +13,9 @@
 - [Vuex](#vuex)
     - [简介](#简介)
     - [基本使用](#基本使用)
+    - [getters](#getters)
+    - [map系列函数](#map系列函数)
+    - [模块化](#模块化)
 
 <!-- /code_chunk_output -->
 
@@ -209,4 +212,135 @@
     };
     export default new vuex.Store({ actions, mutations, state });
     ```
+
+---
+
+**vuex开发者工具**：集成在Vue devtools中，无需额外安装
+![Vuex简介5](./md-image/Vuex简介5.png){:width=250 height=250}
+- 展示的状态改变都是mutations中的，而不是actions
+
+![Vuex简介6](./md-image/Vuex简介6.png){:width=100 height=100}
+**三个按钮**：
+- 第一个：将该次方法调用及其之前的方法调用合并，合并到BaseState中（将BaseState变成执行完该次方法调用后的样子），同时隐藏这些合并完的方法
+- 第二个：取消该次方法执行（撤销），如果撤销的不是最后一次方法，则它之后的方法也会被撤销
+- 第三个：回到该次方法被调用时的数据和页面
+
+![Vuex简介7](./md-image/Vuex简介7.png){:width=100 height=100}
+**右上角的三个按钮**：
+- 第一个：合并所有方法调用
+- 第二个：清空所有方法调用
+- 第三个：停止监视活动（通常不用）
+
+![Vuex简介8](./md-image/Vuex简介8.png){:width=100 height=100}
+**导入和导出按钮**：点击导出后会复制到剪贴版上，点击导入后粘贴即可
+
+---
+
+**补充说明**：
+- **为什么要有上下文对象`context`**：除了便于调用commit和state，还可以调用actions中的其它方法`context.dispatch()`，适用于处理逻辑复杂时进行拆分和复用
+- **为什么不在actions中直接修改数据**：虽然可以实现逻辑，但因为开发者工具只检测mutations，还是写到mutations中更标准
+- **为什么要在actions中写判断逻辑**：当判断逻辑复杂时，可能需要拆分复用
+##### getters
+类似于Vue中的计算属性，写法类似于mutations和actions，也是写在`index.js`中，不是必需的，当处理逻辑复杂时使用
+```js
+/* index.js */
+const getters = {
+    计算属性名(state){ 
+        return state.属性 //处理函数
+    }
+}
+export default new vuex.Store({ actions, mutations, state, getters });
+/* 组件.vue */
+vc.$store.getters.计算属性名
+```
+例：在上面的案例中，创建一个标签，内容为`count*10`
+```js
+/* index.js */
+const getters = {
+    bigSum(state) {
+        return state.count * 10;
+    }
+}
+export default new vuex.Store({ actions, mutations, state, getters });
+```
+```html
+<!-- MyCount.vue -->
+<h2>当前求和*10为：{{$store.getters.bigSum}}</h2>
+```
+##### map系列函数
+解决每次在组件中调用state/actions/mutations时都要写`this.$store`的问题
+需要先在组件中引入这些函数
+```js
+import {mapState, mapGetters, mapActions, mapMutations} from 'vuex';
+```
+- `mapState`：映射state中的数据为计算属性
+    ```js
+    computed: {
+        ...mapState({组件中的变量名:'state中的变量名',}),
+        //如果组件中的变量名与state中的变量名相同，还可以写成，下面类似
+        ...mapState(['变量名',]),
+    },
+    ```
+- `mapGetters`：映射getters中的数据为计算属性
+    ```js
+    computed: {
+        ...mapGetters({组件中的变量名:'state中的变量名'}),
+        ...mapGetters(['变量名'])
+    },
+    ```
+- `mapActions`：映射actions中的函数(dispatch)为methods
+    ```js
+    /* 原写法 */
+    methods方法名(){
+        this.$store.dispatch('actions方法名', 数据)
+    }
+    /* 新写法（还是写在methods中） */
+    ...mapActions({methods方法名:'actions方法名',})
+    ...mapActions(['方法名'])
+    // 标签中写成：@click="methods方法名(数据)"
+    ```
+- `mapMutations`：映射mutations中的函数(commit)为methods
+    ```js
+    /* 与上面类似 */
+    ...mapMutations({methods方法名:'mutations方法名',}),
+    ...mapMutations(['方法名',]),
+    ```
+
+注意：
+- 简写形式不是`{变量名}`，因为这样会转成`{'变量名': 变量名}`，而不是想要的`{'变量名': '变量名'}`
+- mapActions与mapMutations使用时，若需要传递参数，需要在模板中绑定事件时传递，否则默认参数是事件对象
+
+**例：用map系列函数改写上面的案例**
+```html
+<!-- MyCount.vue -->
+<div>
+    <h1>当前求和为：{{sum}}</h1>
+    <h2>当前求和*10为：{{bigSum}}</h2>
+    <select v-model.number="num">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+    </select>
+    <button @click="increment(num)">+</button>
+    <button @click="decrement(num)">-</button>
+    <button @click="incrementOdd(num)">当前和为奇数再加</button>
+    <button @click="incrementWait(num)">等一等再加</button>
+</div>
+<script>
+import {mapState, mapGetters, mapActions, mapMutations} from 'vuex';
+export default {
+    name: "MyCount",
+    data() { return {num: 1} },
+    computed:{
+        ...mapState({sum:'count'}),
+        ...mapGetters(['bigSum']),
+    },
+    methods: {
+        ...mapMutations({increment:'ADD', decrement:'MINUS'}),
+        ...mapActions({incrementOdd:'addOdd', incrementWait:'addWait'})
+    },
+}
+</script>
+```
+##### 模块化
 
