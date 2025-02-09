@@ -16,6 +16,9 @@
     - [getters](#getters)
     - [map系列函数](#map系列函数)
     - [模块化](#模块化)
+- [路由](#路由)
+    - [简介](#简介-1)
+    - [基本使用](#基本使用-1)
 
 <!-- /code_chunk_output -->
 
@@ -343,4 +346,220 @@ export default {
 </script>
 ```
 ##### 模块化
+把`index.js`中的各种state/getters/actions/mutations分类，让代码更好维护，让多种数据分类更加明确
+```js
+const 模块配置名 = {
+    namespaced: true, //开启命名空间
+    state: { /* 里面的内容同非模块化时的写法 */ },
+    mutations: { },
+    actions: { },
+    getters: { }
+}
+const store = new Vuex.Store({
+    modules: {模块名: 模块配置名, } //通常这两个名称相同，可以使用简写
+})
+```
+**组件中读取数据**：
+```js
+//方式一：自己直接读取
+this.$store.state.模块名.变量名
+this.$store.getters['模块名/方法名']
+this.$store.commit('模块名/方法名', 数据) //dispatch相同
+//方式二：借助map系列函数读取
+...mapState('模块名', [ /* 写法同非模块化时的写法 */ ]), //也可以写成对象形式
+```
 
+---
+
+在实际开发中，常把`index.js`中各模块的处理逻辑拆成单独的js文件，暴露模块配置对象，然后在`index.js`中引入并汇总
+```js
+/* 模块.js */
+export default {
+    namespaced: true,
+    actions: {},
+    mutations: {},
+    getters: {},
+    state: {},
+}
+/* index.js */
+import 模块名 from './模块名'
+export default new Vuex.Store({
+    modules: {模块名, }
+})
+```
+
+**例：新增一个组件MyPerson**
+```js
+/* index.js */
+const countOption = {
+    namespaced: true,
+    mutations: {
+        ADD(state, value) {
+            state.count += value;
+        },
+        MINUS(state, value) {
+            state.count -= value;
+        },
+    },
+    getters: {
+        bigSum(state) {
+            return state.count * 10;
+        }
+    },
+    state: {
+        count: 0,
+    }
+};
+const personOption = {
+    namespaced: true,
+    state: {
+        persons: ['abc', 'bcd']
+    }
+};
+export default new vuex.Store({ modules: { countOption, personOption } });
+```
+```html
+<!-- MyCount.vue -->
+<div>
+    <h1>当前求和为：{{count}}</h1>
+    <button @click="increment(num)">+</button>
+    <button @click="decrement(num)">-</button>
+    <h3>下面总人数为{{persons.length}}</h3>
+</div>
+<script>
+import {mapState, mapMutations} from 'vuex';
+export default {
+    name: "MyCount",
+    data() { return {num: 1} },
+    computed:{
+        ...mapState('countOption', ['count']),
+        ...mapState('personOption', ['persons']),
+    },
+    methods: {
+        ...mapMutations('countOption', {increment:'ADD', decrement:'MINUS'}),
+    },
+}
+</script>
+<!-- MyPerson.vue -->
+<div>
+    <h1>人员列表</h1>
+    <ul>
+        <li v-for="(person, index) in persons" :key="index">{{person}}</li>
+    </ul>
+    <h3>上面求和*10为{{bigSum}}</h3>
+</div>
+<script>
+import {mapState, mapGetters} from 'vuex';
+export default {
+    name: "MyPerson",
+    data() {return {input: ''} },
+    computed:{
+        ...mapState('personOption', ['persons']),
+        ...mapGetters('countOption', ['bigSum'])
+    }
+}
+</script>
+```
+### 路由
+##### 简介
+**路由(route)**是一组key-value的对应关系，多个路由需要经过**路由器(router)**的管理
+**目的**：实现**SPA(single page web application)应用**——单页面网站
+- 整个应用只有一个完整的页面`index.html`
+- 点击页面的导航连接不刷新页面，页面只局部刷新
+- 数据需要通过Ajax请求获取
+
+![路由1](./md-image/路由1.png){:width=300 height=300}
+- 左侧红框是导航区，选择某个标签时，右侧显示对应的内容（局部刷新），页面url改变，但导航区一直不变且页面不刷新
+
+**实现原理**：点击左侧标签，引起url改变，Vue中的router检测到这一变化，根据配置的路由规则改变展示区的组件（路由的key就是url路径，value就是组件）
+**分类**：
+- **后端路由**：value是函数，用于处理客户端提交的请求，当服务器接收到请求时，根据请求路径找相应的函数来处理请求响应数据
+- **前端路由**：value是组件，用于展示页面内容，当url改变时显示对应组件
+##### 基本使用
+在Vue中，使用`vue-router`库实现，这是一个插件库，专门用于实现SPA应用
+- 安装：`vue-router`的4.x.x版本适用于Vue3，3.x.x版本适用于Vue2
+  - 这里因为是Vue2，所以`npm i vue-router@3`
+- 在`src`文件夹下创建一个`router`文件夹，里面创建一个`index.js`，用于创建整个应用的路由器
+    ```js
+    import VueRouter from 'vue-router'
+    import 组件 from '../components/组件.vue'
+    export default new VueRouter({ //创建并暴露一个路由器
+        routes:[
+            { //指定路径对应的组件
+                path:'/路径',
+                component:组件
+            },
+        ]
+    })
+    ```
+- 在`main.js`中引入并使用：
+    ```js
+    import router from './router'; //引入
+    Vue.use(VueRouter); //使用
+    new Vue({
+        render: h => h(App),
+        router: router //创建router
+    }).$mount('#app');
+    ```
+- 导航区跳转--展示区展示
+    ```html
+    <!-- 导航区.vue -->
+    <router-link active-class="处于该路径时的类名" to="/路径">路径标签（自定义）</router-link>
+    <!-- 展示区.vue -->
+    <router-view></router-view> <!-- 指定组件的呈现位置 -->
+    ```
+    `router-link`实际上是一个a标签，在页面中呈现就是a标签，CSS选择器也可使用a标签选中
+
+**补充说明**：
+- 组件可分为路由组件和一般组件
+  - 路由组件：写在路由规则中，由路由器渲染的组件，一般放在`src/pages`文件夹下
+  - 一般组件：需要自己写`<组件/>`调用的，一般放在`src/components`文件夹下
+- 在点击导航区跳转时，默认情况下，未展示的路由组件在页面中被销毁（可通过`beforeDestroy()`查看），正在展示的路由组件被挂载（可通过`mounted()`查看）
+- 每个组件都有自己的`$route`属性，存储着自己的路由信息
+- 整个应用只有一个router，可通过组件的`$router`属性获取
+
+**例：左侧为导航区，右侧为展示区**
+![路由2](./md-image/路由2.png){:width=150 height=150}
+```js
+/* router/index.js */
+import VueRouter from 'vue-router'
+import MyAbout from '../pages/MyAbout.vue'
+import MyHome from '../pages/MyHome.vue'
+export default new VueRouter({
+    routes: [
+        {
+            path: '/about',
+            component: MyAbout
+        },
+        {
+            path: '/home',
+            component: MyHome
+        },
+    ]
+})
+/* main.js */
+import VueRouter from 'vue-router'
+Vue.use(VueRouter)
+new Vue({
+  render: h => h(App),
+  router: router
+}).$mount('#app')
+```
+```html
+<!-- App.vue -->
+<template>
+  <div id="app">
+    <router-link class="list-group-item" active-class="active" to="/about">About</router-link>
+    <router-link class="list-group-item" active-class="active" to="/home">Home</router-link>
+  </div>
+</template>
+<!-- <script>中不用引入两个组件 -->
+<!-- MyHome.vue -->
+<template>
+    <h2>我是Home的内容</h2>
+</template>
+<!-- MyAbout.vue -->
+<template>
+    <h2>我是About的内容</h2>
+</template>
+```
