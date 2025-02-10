@@ -19,6 +19,13 @@
 - [路由](#路由)
     - [简介](#简介-1)
     - [基本使用](#基本使用-1)
+    - [嵌套路由](#嵌套路由)
+    - [路由命名](#路由命名)
+    - [路由传参](#路由传参)
+      - [params](#params)
+      - [query](#query)
+    - [props配置](#props配置)
+    - [routerlink标签的replace属性](#routerlink标签的replace属性)
 
 <!-- /code_chunk_output -->
 
@@ -503,9 +510,7 @@ export default {
     ```
 - 导航区跳转--展示区展示
     ```html
-    <!-- 导航区.vue -->
     <router-link active-class="处于该路径时的类名" to="/路径">路径标签（自定义）</router-link>
-    <!-- 展示区.vue -->
     <router-view></router-view> <!-- 指定组件的呈现位置 -->
     ```
     `router-link`实际上是一个a标签，在页面中呈现就是a标签，CSS选择器也可使用a标签选中
@@ -548,10 +553,11 @@ new Vue({
 ```html
 <!-- App.vue -->
 <template>
-  <div id="app">
-    <router-link class="list-group-item" active-class="active" to="/about">About</router-link>
-    <router-link class="list-group-item" active-class="active" to="/home">Home</router-link>
-  </div>
+    <div id="app">
+        <router-link class="list-group-item" active-class="active" to="/about">About</router-link>
+        <router-link class="list-group-item" active-class="active" to="/home">Home</router-link>
+    </div>
+    <router-view></router-view>
 </template>
 <!-- <script>中不用引入两个组件 -->
 <!-- MyHome.vue -->
@@ -562,4 +568,273 @@ new Vue({
 <template>
     <h2>我是About的内容</h2>
 </template>
+```
+##### 嵌套路由
+**嵌套/多级路由**：即有多层路径，在展示区中再额外设立一套“导航--展示”组件
+```js
+/* index.js */
+export default new VueRouter({
+    routes:[
+        {
+            path:'/父组件路径',
+            component:父组件,
+            children:[
+                {
+                    path:'子组件路径', //注意没有斜杠
+                    component:子组件,
+                },
+            ]
+        },
+    ]
+})
+```
+```html
+<!-- 父组件.vue -->
+<router-link to="/父组件路径/子组件路径">xxx</router-link>
+<router-view></router-view>
+```
+例：在上面例子的基础上，在`MyHome`中再添加`MyNews`和`MyMessage`
+![路由3](./md-image/路由3.png){:width=250 height=250}
+```js
+/* router/index.js */
+import MyNews from '../pages/MyNews.vue'
+export default new VueRouter({
+    routes: [
+        {
+            path: '/about',
+            component: MyAbout
+        },
+        {
+            path: '/home',
+            component: MyHome,
+            children: [
+                {
+                    path: 'message',
+                    component: MyMessage,
+                },
+                {
+                    path: 'news',
+                    component: MyNews,
+                },
+            ]
+        },
+    ]
+})
+```
+```html
+<!-- MyHome.vue -->
+<template>
+    <div>
+        <h2>Home组件内容</h2>
+        <div>
+            <ul class="nav nav-tabs">
+                <li><router-link class="list-group-item" to="/home/news">News</router-link></li>
+                <li><router-link active-class="active" class="list-group-item" to="/home/message">Message</router-link></li>
+            </ul>
+            <router-view></router-view>
+        </div>
+    </div>
+</template>
+<!-- MyNews.vue -->
+<template>
+    <ul>
+        <li>news001</li>
+        <li>news002</li>
+        <li>news003</li>
+    </ul>
+</template>
+<!-- MyMessage.vue -->
+<template>
+    <ul>
+        <li><a href="/message1">message001</a>&nbsp;&nbsp;</li>
+        <li><a href="/message2">message002</a>&nbsp;&nbsp;</li>
+        <li><a href="/message/3">message003</a>&nbsp;&nbsp;</li>
+    </ul>
+</template>
+```
+##### 路由命名
+目的是简化对象写法中的path参数
+```js
+/* index.js */
+export default new VueRouter({
+    routes:[
+        {
+            name:'路由名称', //还可写在children中
+            path:'/组件路径',
+            component:组件,
+        },
+    ]
+})
+```
+```html
+<router-link :to="{name:'路由名称'}">xxx</router-link>
+```
+##### 路由传参
+###### params
+把参数作为路径的一部分传递(RESTFUL规范)，类似于nodejs中的占位符
+```js
+/* index.js */
+export default new VueRouter({
+    routes:[
+        {
+            name:'路由名称', 
+            path:'/组件路径/:key1/:key2', //可以写多个，key前加冒号
+            component:组件,
+        },
+    ]
+})
+```
+```html
+<!-- 父组件.vue -->
+<!-- 第一种：字符串写法（推荐） -->
+<router-link to="/组件路径/value1/value2">xxx</router-link>
+<!-- 第二种：对象写法 -->
+<router-link :to="{name:'路由名称', params:{key1:value1, }}">xxx</router-link>
+```
+注：对象写法的`to`中只能写name，不能写path
+```js
+/* 子组件.vue */
+$route.params.key //获取key对应的value值
+```
+###### query
+把参数作为查询字符串传递
+路由器`index.js`无需设置
+```html
+<!-- 父组件.vue -->
+<!-- 第一种：字符串写法 -->
+<router-link to="/组件路径?key1=value1&key2=value2">xxx</router-link>
+<!-- 第二种：对象写法（推荐） -->
+<router-link :to="{path:'/组件路径', query:{key1:value1, }}">xxx</router-link>
+```
+```js
+/* 子组件.vue */
+$route.query.key //获取key对应的value值
+```
+例：在`MyMessage`中创建一个展示区`MyDetail`，内容由`MyMessage`中定义的data决定
+![路由4](./md-image/路由4.png){:width=300 height=300}
+```js
+/* router/index.js */
+import MyDetail from '../pages/MyDetail.vue'
+export default new VueRouter({
+    routes: [
+        {
+            path: '/about',
+            component: MyAbout
+        },
+        {
+            path: '/home',
+            component: MyHome,
+            children: [
+                {
+                    path: 'message',
+                    component: MyMessage,
+                    children: [
+                        {
+                            path: 'detail',
+                            component: MyDetail,
+                        }
+                    ]
+                },
+                {
+                    path: 'news',
+                    component: MyNews,
+                },
+            ]
+        },
+    ]
+})
+```
+```html
+<!-- MyMessage.vue -->
+<template>
+    <div>
+        <ul>
+            <li v-for="message in messageList" :key="message.id">
+                <!-- 字符串写法 -->
+                <router-link :to="`/home/message/detail?id=${message.id}&msg=${message.msg}`">{{message.msg}}</router-link>
+                <!-- 对象写法 -->
+                <router-link :to="{
+                    path:'/home/message/detail',
+                    query:{
+                        id:message.id,
+                        msg:message.msg
+                    }
+                }">
+                    {{message.msg}}
+                </router-link>
+            </li>
+        </ul>
+        <hr>
+        <router-view></router-view>
+    </div>
+</template>
+<script>
+export default {
+    name:'MyMessage',
+    data() {
+        return {
+            messageList:[
+                {id:'001', msg:'message001'},
+                {id:'002', msg:'message002'},
+                {id:'003', msg:'message003'},
+            ]
+        }
+    },
+}
+</script>
+<!-- MyDetail.vue -->
+<template>
+    <div>
+        <ul>
+            <li>消息编号：{{$route.query.id}}</li>
+            <li>消息标题：{{$route.query.msg}}</li>
+        </ul>
+    </div>
+</template>
+```
+##### props配置
+写在路由规则中
+- **第一种写法**：值为对象，该对象中所有key-value都会以props形式传给组件。使用较少，因为只能传递写死的数据
+    ```js
+    /* index.js */
+    export default new VueRouter({
+        routes:[
+            {
+                path:'/组件路径',
+                component:组件,
+                props:{key1:value1, }
+            },
+        ]
+    })
+    /* 组件.vue */
+    export default {
+        props: ['key1', ],
+    }
+    ```
+- **第二种写法**：值为bool值，若为true，则把该组件收到的所有params参数，以props形式传给组件
+- **第三种写法**：值为回调函数，接收参数`$route`，返回一个对象，以props形式传给组件（使可以把query参数也以props形式传给组件）。最强大，可以同时传递参数或固定数据
+    ```js
+    props($route){
+        return {id:$route.query.id}
+    },
+    /* 或者使用解构赋值 */
+    props({query}){
+        return {id:query.id}
+    },
+    /* 连续解构赋值 */
+    props({query:{id, msg}}){
+        return {id, msg}
+    },
+    ```
+##### routerlink标签的replace属性
+控制路由跳转时操作浏览器历史记录的模式。浏览器的历史记录有两种写入方式：
+- push（默认）：追加历史记录，把每次访问的网站依次压入栈中，后退/前进就是操作栈中的指针来寻址
+- replace：替换当前记录，即把每次访问的网站替换栈顶元素。假设当前正处于a网址，下一次点击的b网址设置了replace属性，则此时点击后退，应返回a的上一级网址
+  如图，依次点击About/Home/News/Message链接，其中News/Message设置了replace属性，则此时后退，应返回About
+  ![路由5](./md-image/路由5.png){:width=300 height=300}
+
+```html
+<router-link :replace='true'>xxx</router-link>
+<!-- 简写： -->
+<router-link replace>xxx</router-link>
 ```
