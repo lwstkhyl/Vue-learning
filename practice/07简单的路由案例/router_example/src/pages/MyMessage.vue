@@ -26,6 +26,8 @@
                 }">
                     {{message.msg}}
                 </router-link>
+                <button @click="push(message)">push</button>
+                <button @click="replace(message)">replace</button>
             </li>
         </ul>
         <hr>
@@ -44,6 +46,28 @@ export default {
                 {id:'003', msg:'message003'},
             ]
         }
+    },
+    methods: {
+        push(message){
+            this.$router.push({
+                name:'detail',
+                params:{
+                    id:message.id,
+                    msg:message.msg
+                }
+            })
+            //也可以写成：
+            // this.$router.push(`/home/message/detail/${message.id}/${message.msg}`)
+        },
+        replace(message){
+            this.$router.replace({
+                name:'detail',
+                params:{
+                    id:message.id,
+                    msg:message.msg
+                }
+            })
+        },
     },
 }
 </script>

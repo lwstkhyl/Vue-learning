@@ -26,6 +26,11 @@
       - [query](#query)
     - [props配置](#props配置)
     - [routerlink标签的replace属性](#routerlink标签的replace属性)
+    - [编程式路由导航](#编程式路由导航)
+    - [缓存路由组件](#缓存路由组件)
+    - [路由组件独有的两个生命周期钩子](#路由组件独有的两个生命周期钩子)
+    - [路由守卫](#路由守卫)
+      - [全局前置和后置](#全局前置和后置)
 
 <!-- /code_chunk_output -->
 
@@ -837,4 +842,183 @@ export default {
 <router-link :replace='true'>xxx</router-link>
 <!-- 简写： -->
 <router-link replace>xxx</router-link>
+```
+##### 编程式路由导航
+不借助`<router-link>`实现路由跳转，用于使用按钮或其它标签而不是a标签进行跳转的情况，或者需要页面自动跳转时
+```js
+vc.$router.push(/* 里面的参数同routerlink的to属性 */) //push方式跳转
+vc.$router.replace(/* 里面的参数同routerlink的to属性 */) //replace方式跳转
+vc.$router.forward() //前进
+vc.$router.back() //后退
+vc.$router.go(n) //可前进也可后退
+```
+- 若n为正数，就是前进n步；若为负数，就是后退n步（与原生js相同）；若为9则刷新当前路由页面
+
+例：为message的三个链接分别添加添加两个按钮（push和replace跳转），并在banner区域添加前进/后退按钮
+```html
+<!-- MyMessage.vue -->
+<button @click="push(message)">push</button>
+<button @click="replace(message)">replace</button>
+<script>
+    methods: {
+        push(message){
+            this.$router.push({
+                name:'detail',
+                params:{
+                    id:message.id,
+                    msg:message.msg
+                }
+            })
+            //也可以写成：
+            // this.$router.push(`/home/message/detail/${message.id}/${message.msg}`)
+        },
+        replace(message){
+            this.$router.replace({
+                name:'detail',
+                params:{
+                    id:message.id,
+                    msg:message.msg
+                }
+            })
+        },
+    },
+</script>
+<!-- MyBanner.vue -->
+<button @click="forward">前进</button>
+<button @click="back">后退</button>
+<script>
+    methods: {
+        forward(){
+            this.$router.forward();
+        },
+        back(){
+            this.$router.back();
+        },
+    },
+</script>
+```
+##### 缓存路由组件
+前面说过切换组件时，组件中的元素都被销毁，展示时再重新挂载，如果想让组件不销毁，就可以使用`<keep-alive>`包裹在`<router-view>`外面，例如如果组件中有输入框，想让切换组件时保存输入框中的内容
+```html
+<keep-alive include="想缓存的路由组件名">
+    <router-view></router-view>
+</keep-alive>
+<!-- 如果有多个想缓存的组件 -->
+<keep-alive :include="['组件名1', '组件名2', ]">
+<keep-alive include="组件名1,组件名2,"> <!-- 中间不要有空格 -->
+```
+- 如果不写include配置项，则使用到的组件全部被缓存
+##### 路由组件独有的两个生命周期钩子
+- `activated`激活：切换到该组件时
+- `deactivated`失活：切换到别的组件时
+
+与是否缓存无关，只取决于是否正在展示该组件
+例：在一个需要缓存的组件`MyNews`中添加一个随时间变化而改变opacity的标签
+- 如果使用mounted和beforeDestroy，则因为缓存，beforeDestroy不会被执行，定时器也就不会被关闭
+
+```html
+<!-- MyHome.vue -->
+<keep-alive include="MyNews">
+    <router-view></router-view>
+</keep-alive>
+<!-- MyNews.vue -->
+<template>
+    <ul>
+        <p :style="{opacity}">opacity不断变化</p>
+        <li>news001</li> <input type="text">
+        <li>news002</li> <input type="text">
+        <li>news003</li> <input type="text">
+    </ul>
+</template>
+<script>
+export default {
+    name: 'MyNews',
+    data() {return {opacity: 1}},
+    activated() {
+        this.timer = setInterval(()=>{
+            this.opacity -= 0.01;
+            if(this.opacity <= 0) this.opacity = 1;
+        }, 16);
+    },
+    deactivated() {
+        clearInterval(this.timer);
+    },
+}
+</script>
+```
+##### 路由守卫
+给路由设置权限，具有某些权限时才能点击路由
+###### 全局前置和后置
+给`router/index.js`中创建的`VueRouter`实例对象上添加：
+- `beforeEach`方法（全局前置）：接收一个回调函数，在**初始化时**和**每次切换路由前**被调用
+- `afterEach`方法（全局后置）：接收一个回调函数，在**初始化时**和**每次切换路由后**被调用，是已经进入该路由之后执行的
+
+```js
+const router = new VueRouter({...})
+router.beforeEach((to, from, next)=>{
+    //to：要跳转到哪个路由
+    //from：现在正处于哪个路由
+    next(); //继续执行跳转操作（类似于nodejs中的next）
+})
+router.afterEach((to, from)=>{ //没有next
+    //to：要跳转到哪个路由
+    //from：现在正处于哪个路由
+})
+export default router;
+```
+to和from的属性值：（这里以从About跳转到Home为例）
+![路由6](./md-image/路由6.png){:width=300 height=300}
+例：在本地存储中存一个`name`属性，只有其值为`"abc"`时才允许访问`News`页面
+```js
+router.beforeEach((to, from, next) => {
+    if (to.fullPath === "/home/news") {
+        if (localStorage.getItem('name') === 'abc') {
+            next();
+        } else alert('禁止访问');
+    } else next();
+})
+```
+
+---
+
+简化`to.xxx === "xxx"`的判断：给需要设置权限的路由增加配置项`meta`，值为一个对象，可以存放需要判断的权限类型，或者其它信息（如标题等等）
+```js
+const router = new VueRouter({
+    routes: [
+        {
+            path: 'xxx',
+            component: xxx,
+            meta:{isAuth: true} //isAuth也可以写成别的
+        },
+    ]
+}
+router.beforeEach((to, from, next) => {
+    if (to.meta.isAuth) { //如果需要鉴权
+        if ( /* 判断是否有权限的语条件 */ ) {
+            next();
+        }
+    } else next();
+})
+```
+例：给`News`页面加标题（页面标签）
+```js
+const router = new VueRouter({
+    routes: [
+                {
+                    path: 'news',
+                    component: MyNews,
+                    meta: { title: '新闻', isAuth: true },
+                },
+            ]
+})
+router.beforeEach((to, from, next) => {
+    if (to.meta.isAuth) {
+        if (localStorage.getItem('name') === 'abc') {
+            next();
+        } else alert('禁止访问');
+    } else next();
+})
+router.afterEach((to, _) => {
+    document.title = to.meta.title || 'default';
+})
 ```

@@ -1,9 +1,7 @@
 <template>
   <div id="app">
         <div class="row">
-            <div class="col-xs-offset-2 col-xs-8">
-                <div class="page-header"><h2>Vue Router Demo</h2></div>
-            </div>
+            <MyBanner/>
         </div>
         <div class="row">
             <div class="col-xs-2 col-xs-offset-2">
@@ -26,10 +24,10 @@
 </template>
 
 <script>
-
+import MyBanner from './components/MyBanner.vue'
 export default {
   name: 'App',
-  components: {}
+  components: {MyBanner}
 }
 </script>
 
