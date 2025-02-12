@@ -31,6 +31,11 @@
     - [路由组件独有的两个生命周期钩子](#路由组件独有的两个生命周期钩子)
     - [路由守卫](#路由守卫)
       - [全局前置和后置](#全局前置和后置)
+      - [独享](#独享)
+      - [组件内](#组件内)
+    - [hash和history模式](#hash和history模式)
+- [项目上线](#项目上线)
+- [UI组件库](#ui组件库)
 
 <!-- /code_chunk_output -->
 
@@ -1022,3 +1027,151 @@ router.afterEach((to, _) => {
     document.title = to.meta.title || 'default';
 })
 ```
+###### 独享
+即给某个组件单独设置路由守卫，写在路由配置项里面，与全局前置类似，但没有后置
+```js
+const router = new VueRouter({
+    routes: [{
+        path: 'xxx',
+        component: xxx,
+        beforeEnter: (to, from, next) => {
+            //参数含义和使用方法同全局前置
+        },
+    },]
+})
+```
+###### 组件内
+也是给某个组件单独设置路由守卫，但写在组件配置项中，
+- `beforeRouteEnter`方法：通过路由规则，进入该组件时被调用
+- `beforeRouteLeave`方法：通过路由规则，离开该组件时被调用
+
+“通过路由规则”：指通过路由跳转，而不是直接使用`<组件/>`引入
+```js
+export default {
+    name: 'MyNews',
+    beforeRouteEnter (to, from, next) {
+        //参数含义和使用方法同全局前置
+    },
+    beforeRouteLeave (to, from, next) {
+        //to是要去往的组件，from是当前组件
+    }
+}
+```
+两个函数的调用时刻类似于`activated`和`deactivated`，只是这两个函数有`to/from/next`三个参数，可以进行放行/阻止操作
+##### hash和history模式
+**hash模式**：前面的例子中，网址都是`http://localhost:8080/#/xxx`的形式，中间有一个井号，我们把`#`及其后面的部分称为hash值，这部分路径不会包含在HTTP请求中，即不会传给服务器（以该路径作为url，发送请求时，服务器不会把#后的部分作为请求url）
+**history模式**：没有#，直接是路径，全部url都会传给服务器
+```js
+/* router/index.js */
+const router = new VueRouter({
+    mode: 'history', //设置为history模式
+    routes: [...]
+})
+```
+除了路径不同的其它区别：
+- hash模式中，若以后将地址通过第三方手机app分享，若app校验严格，则地址会被标记为不合法
+- hash模式对浏览器的兼容性较好，history模式略差
+- 应用上线时，history模式在后端需要额外处理
+### 项目上线
+工作目录中输入`npm run build`，生成一个`dist`文件夹
+![项目上线1](./md-image/项目上线1.png){:width=250 height=250}
+生成的`index.html`不能直接用浏览器打开，必须在服务器上部署，这里使用express框架
+- 在一个空目录中安装express：`npm i express`
+- 新建一个文件夹`static`（或`public`），把上面`dist`文件夹中的内容复制进去
+- 新建一个`server.js`用于启动服务器
+    ![项目上线2](./md-image/项目上线2.png){:width=250 height=250}
+  - **hash模式**：
+    ```js
+    /* server.js */
+    const express = require('express');
+    const app = express();
+    app.use(express.static(__dirname + '/static'));
+    app.listen(5000, err => { //在5000端口上
+        if (!err) console.log('服务器启动成功');
+    });
+    ```
+  - **history模式**：如果仍使用上面的代码，当未处于首页时，刷新页面时会404，因为把全部路径都当成了请求url，而静态资源中只有一个index.html
+    首先安装`connect-history`包：`npm i connect-history-api-fallback`
+    ```js
+    /* server.js */
+    const express = require('express');
+    const history = require('connect-history-api-fallback');
+    const app = express();
+    app.use(history());
+    app.use(express.static(__dirname + '/static'));
+    app.listen(5000, err => {
+        if (!err) console.log('服务器启动成功');
+    });
+    ```
+- 此时访问`http://127.0.0.1:5000/`即可
+### UI组件库
+组件库都是基于前端框架的(Vue/React/Angular)，通常分为移动端和PC端
+**移动端**：
+- [Vant](https://youzan.github.io/vant)
+- [Cube UI](https://didi.github.io/cube-ui)
+- [Mint](https://mint-ui.github.io)
+
+**PC端**：
+- [Element UI](https://element.eleme.cn)
+- [Ant Design](https://www.antdv.com/docs/vue/introduce-cn)
+- [IView UI](https://www.iviewui.com)
+
+---
+
+以element-ui为例：
+- 安装：`npm i element-ui`
+- 在`main.js`中引入
+  - 完整引入：引入提供的全部CSS样式，会造成引入的js文件过大
+    ```js
+    import ElementUI from 'element-ui';
+    import 'element-ui/lib/theme-chalk/index.css';
+    Vue.use(ElementUI);
+    ```
+  - 按需引入：先安装一个包`npm i babel-plugin-component -D`（开发依赖）
+    ```js
+    /* babel.config.js */
+    module.exports = {
+    presets: [
+        '@vue/cli-plugin-babel/preset',
+        ["@babel/preset-env", { "modules": false }]
+    ],
+    plugins: [
+        [
+        "component",
+        {
+            "libraryName": "element-ui",
+            "styleLibraryName": "theme-chalk"
+        }
+        ]
+    ]
+    }
+    /* main.js */
+    import {组件对象名, } from 'element-ui';
+    Vue.use(组件对象名); //也可以↓
+    Vue.component('给组件重命名', 组件对象名); //之后组件名就是重命名后的
+    ```
+    一般情况下，引入的对象名就是组件名去掉`el`后转成大驼峰命名
+- 在任意组件中使用：
+    ```js
+    /* main.js */
+    import { Button, DatePicker, Row } from 'element-ui';
+    Vue.use(Button);
+    Vue.use(DatePicker);
+    Vue.component('MyRow', Row); //仅是为了演示component的用法
+    ```
+    ```html
+    <template>
+        <div>
+            <MyRow>
+                <el-button>默认按钮</el-button>
+                <el-button type="primary">主要按钮</el-button>
+                <el-button type="success">成功按钮</el-button>
+            </MyRow>
+            <el-date-picker
+                v-model="date"
+                type="date"
+                placeholder="选择日期">
+            </el-date-picker>
+        </div>
+    </template>
+    ```

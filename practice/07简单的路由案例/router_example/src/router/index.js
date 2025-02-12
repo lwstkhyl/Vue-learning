@@ -6,6 +6,7 @@ import MyMessage from '../pages/MyMessage.vue'
 import MyNews from '../pages/MyNews.vue'
 import MyDetail from '../pages/MyDetail.vue'
 const router = new VueRouter({
+    mode: 'history',
     routes: [
         {
             path: '/about',
