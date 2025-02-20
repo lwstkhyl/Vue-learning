@@ -499,6 +499,8 @@ export default {
 - 在`src`文件夹下创建一个`router`文件夹，里面创建一个`index.js`，用于创建整个应用的路由器
     ```js
     import VueRouter from 'vue-router'
+    import Vue from 'vue'
+    Vue.use(VueRouter);
     import 组件 from '../components/组件.vue'
     export default new VueRouter({ //创建并暴露一个路由器
         routes:[
@@ -512,7 +514,6 @@ export default {
 - 在`main.js`中引入并使用：
     ```js
     import router from './router'; //引入
-    Vue.use(VueRouter); //使用
     new Vue({
         render: h => h(App),
         router: router //创建router
