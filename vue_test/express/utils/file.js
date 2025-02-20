@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
-const zip = require('express-zip');
+const archiver = require('archiver')
 const dayjs = require('dayjs');
 const { UPLOAD_DIR } = require('../config/constants');
 
@@ -78,31 +78,29 @@ exports.deleteFile = async (req, res) => {
 
 exports.downloadFile = async (req, res) => {
     //防止连续下载
-    if (!req.query.files) { //下载的是单个文件
-        const filePath = path.join(UPLOAD_DIR, req.params[0]);
-        try {
+
+    try {
+        if (!req.query.files) { //下载的是单个文件
+            const filePath = path.join(UPLOAD_DIR, req.params[0]);
             res.download(filePath);
-        } catch (err) {
-            res.status(404).send('File not found');
-        }
-    } else { //下载多个文件
-        res.zip(
-            JSON.parse(req.query.files).map(file => {
-                return {
-                    path: path.join(UPLOAD_DIR, file),
-                    name: file.split('/')[file.split('/').length - 1]
+        } else { //下载多个文件
+            const archive = archiver('zip');
+            res.attachment(`download-${dayjs().format('YYYY-MM-DD HH-mm-ss')}.zip`);
+            archive.pipe(res);
+            let files = JSON.parse(req.query.files);
+            files = Array.isArray(files) ? files : [files];
+            await Promise.all(files.map(async file => {
+                const fullPath = path.join(UPLOAD_DIR, file);
+                if ((await fs.stat(fullPath)).isDirectory()) {
+                    archive.directory(fullPath, file.split('/')[file.split('/').length - 1]);
+                } else {
+                    archive.file(fullPath, { name: file.split('/')[file.split('/').length - 1] });
                 }
-            }),
-            `download-${dayjs().format('YYYY-MM-DD HH-mm-ss')}.zip`
-        );
-        // const archive = archiver('zip');
-        // res.attachment('download.zip');
-        // archive.pipe(res);
-        // const files = Array.isArray(req.query.files) ? req.query.files : [req.query.files];
-        // files.forEach(file => {
-        //     archive.file(path.join(UPLOAD_DIR, file), { name: file });
-        // });
-        // archive.finalize();
+            }));
+            archive.finalize();
+        }
+    } catch (err) {
+        res.status(404).send('File not found');
     }
 }
 

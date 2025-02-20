@@ -1,11 +1,9 @@
 <template>
   <div class="file-manager">
     <nav-bar :isLoggedIn="isLoggedIn"/>
-    <div class="stats">总空间：{{ formatSize(totalSize) }}</div>
-    <!-- 操作栏 -->
-    <div class="action-bar">
-        <el-button icon="el-icon-refresh" class="el-button el-button--primary" @click="refresh"></el-button>
-    </div>
+    <div class="stats">总占用空间：{{ formatSize(totalSize) }}</div>
+    <!-- 刷新 -->
+    <el-button icon="el-icon-refresh" class="el-button el-button--primary" @click="loadFiles()"></el-button>
     <!-- 上传区域 -->
     <el-upload
       v-show="isLoggedIn"
@@ -16,11 +14,9 @@
       :http-request="handleUpload"
       :show-file-list="false"
     >
-    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-    <div class="el-upload__text">
-      Drop file here or <em>click to upload</em>
-    </div>
-  </el-upload>
+      <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+      <div class="el-upload__text">拖拽或<em>点击上传文件</em></div>
+    </el-upload>
     <!-- <el-upload
       action="#"
       multiple
@@ -29,6 +25,7 @@
     >
       
     </el-upload> -->
+
     <!-- 新建文件夹 -->
     <el-button v-show="isLoggedIn" @click="visible = true">新建文件夹</el-button>
 
@@ -57,9 +54,13 @@
 
     <!-- 文件列表 -->
     <el-table 
-      :data="files" 
+      :data="files"
+      ref="fileTable"
       @selection-change="handleSelectionChange"
       style="width: 100%"
+      @row-click="rowClick"  
+      :row-style="rowStyle" 
+      :row-class-name="rowClassName"
     >
       <el-table-column type="selection" width="55">
 
@@ -69,7 +70,7 @@
           <span 
             class="file-item"
             :class="row.type === 'directory' ? 'file-item-folder' : 'file-item-document'"
-            @click="handleItemClick(row)"
+            @click="handleItemClick(row, $event)"
           >
             <i :class="row.type === 'directory' ? 'el-icon-folder' : 'el-icon-document'"></i>
             {{ row.name }}
@@ -90,13 +91,13 @@
         <template v-slot="{ row }">
           <el-button 
             size="mini"
-            @click="downloadFile(row.path, row.type)"
+            @click.stop="downloadFile(row.path, row.type)"
           >下载</el-button>
           <el-button 
             v-show="isLoggedIn"
             type="danger" 
             size="mini"
-            @click="deleteFile(row.path)"
+            @click.stop="deleteFile(row.path)"
           >删除</el-button>
         </template>
       </el-table-column>
@@ -131,7 +132,7 @@ export default {
       totalSize: 0,
       selectedFiles: [],
       visible: false, //新建文件夹
-      folderName: ''
+      folderName: '' //新建文件夹名称
     }
   },
   computed: {
@@ -164,16 +165,14 @@ export default {
           query: { path: this.currentDir } 
         })
       } catch (err) {
+        this.files = [];
         this.$message.error('加载文件列表失败')
       }
     },
 
-    refresh(){
-      this.loadFiles()
-    },
-
-    handleItemClick(item) {
+    handleItemClick(item, e) {
       if (item.type === 'directory') {
+        e.stopPropagation();
         this.currentDir = item.path
         this.loadFiles()
       }
@@ -201,19 +200,21 @@ export default {
             'Authorization': `Bearer ${this.$store.state.token}`
           },
         });
-        await this.loadFiles();
+        this.$message.success('上传成功');
       } catch (err) {
         this.$message.error('上传失败');
       }
+      await this.loadFiles();
     },
     
     async deleteFile(path) {
       try {
         await request.delete(`/files/${encodeURIComponent(path)}`);
-        await this.loadFiles();
+        this.$message.success('删除成功');
       } catch (err) {
         this.$message.error('删除失败');
       }
+      await this.loadFiles();
     },
 
     async createFolder(){
@@ -226,39 +227,71 @@ export default {
         this.folderName = '';
         this.visible = false;
         this.$message.success('创建成功');
-        await this.loadFiles();
       } catch (err) {
         this.$message.error(`创建失败：${err.response.data.error}`);
       }
+      await this.loadFiles();
     },
 
+    //表格处理
     handleSelectionChange(files){
       this.selectedFiles = files; 
     },
-    
+    rowStyle({row,rowIndex}) {
+      Object.defineProperty(row, 'rowIndex', {
+          value: rowIndex, 
+          writable: true,
+          enumerable: false
+          })
+      },
+    rowClick(row, column, event) {
+          let refsElTable = this.$refs.fileTable;
+          let findRow = this.selectedFiles.find(c => c.rowIndex == row.rowIndex);
+          if (findRow) {
+              refsElTable.toggleRowSelection(row, false);
+              return;
+          }
+          refsElTable.toggleRowSelection(row,true);
+      },
+    rowClassName({ row,  rowIndex }) {
+          let rowName = "",
+          findRow = this.selectedFiles.find(c => c.rowIndex === row.rowIndex);
+          if (findRow) {
+              rowName = "current-row "; 
+          }
+          return rowName;
+      },
+
     //单选下载
     downloadFile(path, type) {
-      if(type === 'directory'){ //如果要下载的是目录
-        window.open(
-          `${baseURL}/api/download/?files=${encodeURIComponent(JSON.stringify(path))}`
-        );
-      } else { //如果是普通单一文件
-        window.open(
-          `${baseURL}/api/download/${encodeURIComponent(path)}`,
-          '_blank'
-        );
+      try{
+        if(type === 'directory'){ //如果要下载的是目录
+          window.open(
+            `${baseURL}/api/download/?files=${encodeURIComponent(JSON.stringify(path))}`
+          );
+        } else { //如果是普通单一文件
+          window.open(
+            `${baseURL}/api/download/${encodeURIComponent(path)}`,
+          );
+        }
+      } catch(err) {
+        this.$message.error('下载失败');
       }
     },
 
     // 多选下载
     async downloadSelected() {
-      if (this.selectedFiles.length === 1 && this.selectedFiles[0].type !== 'directory') {
-        return this.downloadFile(this.selectedFiles[0].path);
+      try{
+        if (this.selectedFiles.length === 1 && this.selectedFiles[0].type !== 'directory') {
+          return this.downloadFile(this.selectedFiles[0].path);
+        }
+        const paths = this.selectedFiles.map(f => f.path);
+        window.open(
+          `${baseURL}/api/download/?files=${encodeURIComponent(JSON.stringify(paths))}`
+        );
+      } catch(err) {
+        this.$message.error('下载失败');
       }
-      const paths = this.selectedFiles.map(f => f.path);
-      window.open(
-        `${baseURL}/api/download/?files=${encodeURIComponent(JSON.stringify(paths))}`
-      );
     },
 
     formatSize(bytes) {
@@ -302,4 +335,18 @@ export default {
 .click-a .el-breadcrumb__inner{
   color: #09AAFF;
 }
+
+.el-table__body tr:hover>td{
+    background-color: hsla(201, 100%, 66%, 0.356) !important;
+}
+
+/* 解决控制台多选框报错 */
+input[aria-hidden="true"] {
+    display: none !important;
+}
+
+.el-radio:focus:not(.is-focus):not(:active):not(.is-disabled) .el-radio__inner {
+    box-shadow: none;
+}
+
 </style>
