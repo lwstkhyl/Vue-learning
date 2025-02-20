@@ -1,16 +1,14 @@
 <template>
   <div class="file-manager">
-    <nav-bar/>
+    <nav-bar :isLoggedIn="isLoggedIn"/>
     <div class="stats">总空间：{{ formatSize(totalSize) }}</div>
     <!-- 操作栏 -->
     <div class="action-bar">
-      <el-button-group>
-        <el-button @click="visible = true">新建文件夹</el-button>
-        <el-button icon="el-icon-refresh" @click="refresh"></el-button>
-      </el-button-group>
+        <el-button icon="el-icon-refresh" class="el-button el-button--primary" @click="refresh"></el-button>
     </div>
     <!-- 上传区域 -->
     <el-upload
+      v-show="isLoggedIn"
       class="upload-demo"
       drag
       multiple
@@ -31,18 +29,29 @@
     >
       
     </el-upload> -->
+    <!-- 新建文件夹 -->
+    <el-button v-show="isLoggedIn" @click="visible = true">新建文件夹</el-button>
 
     <!-- 路径导航 -->
     <div class="path-navigation">
-      <el-breadcrumb separator="/">
-        <el-breadcrumb-item @click.native="navigateTo(-1)">{{ '根目录' }}</el-breadcrumb-item>
+      <el-breadcrumb separator="|">
         <el-breadcrumb-item 
-          v-for="(part, index) in pathParts" 
-          :key="index"
-          @click.native="navigateTo(index)"
-        >
-          {{ part || '根目录' }}
-        </el-breadcrumb-item>
+          v-show="pathParts.length" 
+          @click.native="navigateTo(pathParts.length-2)" 
+          class="click-a"
+        >返回上一级</el-breadcrumb-item>
+        <el-breadcrumb separator=">">
+          <el-breadcrumb-item 
+            @click.native="navigateTo(-1)"
+            :class="pathParts.length ? 'click-a' : ''" 
+          >全部文件</el-breadcrumb-item>
+          <el-breadcrumb-item 
+            v-for="(part, index) in pathParts" 
+            :key="index"
+            @click.native="navigateTo(index)"
+            :class="(index === pathParts.length-1) ? '' : 'click-a'"
+          >{{ part || '全部文件' }}</el-breadcrumb-item>
+        </el-breadcrumb>
       </el-breadcrumb>
     </div>
 
@@ -81,9 +90,10 @@
         <template v-slot="{ row }">
           <el-button 
             size="mini"
-            @click="downloadFile(row.path)"
+            @click="downloadFile(row.path, row.type)"
           >下载</el-button>
           <el-button 
+            v-show="isLoggedIn"
             type="danger" 
             size="mini"
             @click="deleteFile(row.path)"
@@ -95,10 +105,11 @@
     <el-dialog title="新建文件夹" :visible.sync="visible">
       <el-input v-model="folderName" placeholder="输入文件夹名称"></el-input>
       <div slot="footer">
-      <el-button @click="visible = false; folderName = ''">取消</el-button>
-      <el-button type="primary" @click="createFolder">确认</el-button>
+        <el-button @click="visible = false; folderName = ''">取消</el-button>
+        <el-button type="primary" @click="createFolder">确认</el-button>
       </div>
     </el-dialog>
+    <el-button v-show="selectedFiles.length" type="primary" @click="downloadSelected">下载选中文件</el-button>
   </div>
 </template>
 
@@ -119,7 +130,6 @@ export default {
       currentDir: this.currentPath,
       totalSize: 0,
       selectedFiles: [],
-      isSelecting: false,
       visible: false, //新建文件夹
       folderName: ''
     }
@@ -127,6 +137,9 @@ export default {
   computed: {
     pathParts() {
       return this.currentDir.split('/').filter(p => p)
+    },
+    isLoggedIn() {
+      return !!this.$store.state.token;
     }
   },
   watch: {
@@ -187,10 +200,8 @@ export default {
             'Content-Type': 'multipart/form-data;charset=UTF-8',
             'Authorization': `Bearer ${this.$store.state.token}`
           },
-          
         });
         await this.loadFiles();
-         
       } catch (err) {
         this.$message.error('上传失败');
       }
@@ -216,10 +227,9 @@ export default {
         this.visible = false;
         this.$message.success('创建成功');
         await this.loadFiles();
-      }catch (err) {
+      } catch (err) {
         this.$message.error(`创建失败：${err.response.data.error}`);
       }
-
     },
 
     handleSelectionChange(files){
@@ -227,20 +237,27 @@ export default {
     },
     
     //单选下载
-    downloadFile(path) {
-      window.open(
-        `${baseURL}/api/download/${encodeURIComponent(path)}`,
-        '_blank'
-      );
+    downloadFile(path, type) {
+      if(type === 'directory'){ //如果要下载的是目录
+        window.open(
+          `${baseURL}/api/download/?files=${encodeURIComponent(JSON.stringify(path))}`
+        );
+      } else { //如果是普通单一文件
+        window.open(
+          `${baseURL}/api/download/${encodeURIComponent(path)}`,
+          '_blank'
+        );
+      }
     },
 
     // 多选下载
     async downloadSelected() {
-      if (this.selectedFiles.length === 0) return;
-      
+      if (this.selectedFiles.length === 1 && this.selectedFiles[0].type !== 'directory') {
+        return this.downloadFile(this.selectedFiles[0].path);
+      }
       const paths = this.selectedFiles.map(f => f.path);
       window.open(
-        `/api/download?files=${encodeURIComponent(JSON.stringify(paths))}`
+        `${baseURL}/api/download/?files=${encodeURIComponent(JSON.stringify(paths))}`
       );
     },
 
@@ -260,7 +277,7 @@ export default {
   }
 }
 </script>
-<style scoped>
+<style>
 .file-item {
   padding: 5px;
 }
@@ -270,11 +287,19 @@ export default {
 /* .file-item.directory:hover {
   background: #f5f7fa;
 } */
-
-.el-breadcrumb__item {
+.path-navigation{
+  margin: 10px;
+}
+.el-breadcrumb__inner {
   cursor: pointer;
+}
+.click-a .el-breadcrumb__inner:hover{
+  text-decoration: underline
 }
 .path-navigation{
   margin-top: 10px;
+}
+.click-a .el-breadcrumb__inner{
+  color: #09AAFF;
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
     <div class="nav-bar">
         <div class="auth-buttons">
-        <el-button v-if="!isLoggedIn" @click="login">登录</el-button>
+        <el-button v-if="!isLoggedIn" class="el-button el-button--primary" @click="login">登录</el-button>
         <el-button v-else @click="logout">退出</el-button>
         </div>
     </div>
@@ -9,11 +9,7 @@
 
 <script>
 export default {
-    computed: {
-        isLoggedIn() {
-            return !!this.$store.state.token;
-        }
-    },
+    props:["isLoggedIn"],
     methods: {
         login() {
             this.$router.push('/login');

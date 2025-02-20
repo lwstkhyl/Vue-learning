@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
-const archiver = require('archiver');
+const zip = require('express-zip');
+const dayjs = require('dayjs');
 const { UPLOAD_DIR } = require('../config/constants');
 
 exports.listFiles = async (req, res) => {
@@ -25,13 +26,13 @@ exports.listFiles = async (req, res) => {
                 ctimeMs: detailInfo.ctimeMs
             }
         }));
+        const dic_files = files.filter(file => file.type === 'directory');
+        const normal_files = files.filter(file => file.type !== 'directory');
         res.json({
             currentPath: safePath,
-            files
+            files: [...dic_files, ...normal_files],
         });
     } catch (err) {
-        console.log(err);
-
         res.status(404).send('Path not found');
     }
 };
@@ -40,7 +41,6 @@ exports.uploadFiles = async (req, res) => {
     if (!req.files || !req.files.files) {
         return res.status(400).send('No files uploaded');
     }
-
     try {
         const currentPath = req.body.path || ''; // 获取前端传递的路径参数
         const safePath = path.normalize(currentPath).replace(/^(\.\.(\/|\\|$))+/g, '');
@@ -53,7 +53,6 @@ exports.uploadFiles = async (req, res) => {
         const files = Array.isArray(req.files.files)
             ? req.files.files
             : [req.files.files];
-
         await Promise.all(files.map(async file => {
             // 解码文件名
             const decodedName = decodeURIComponent(file.name);
@@ -61,7 +60,6 @@ exports.uploadFiles = async (req, res) => {
             await fs.mkdir(path.dirname(targetPath), { encoding: 'utf8', recursive: true });
             await file.mv(targetPath);
         }));
-
         res.send('Files uploaded successfully');
     } catch (err) {
         res.status(500).send('Upload failed');
@@ -70,7 +68,6 @@ exports.uploadFiles = async (req, res) => {
 
 exports.deleteFile = async (req, res) => {
     const filePath = path.join(UPLOAD_DIR, req.params[0]);
-
     try {
         await fs.rm(filePath, { recursive: true, force: true });
         res.send('Deleted successfully');
@@ -81,28 +78,31 @@ exports.deleteFile = async (req, res) => {
 
 exports.downloadFile = async (req, res) => {
     //防止连续下载
-    if (!req.query.file) { //下载的是单个文件
+    if (!req.query.files) { //下载的是单个文件
         const filePath = path.join(UPLOAD_DIR, req.params[0]);
         try {
-            if (req.query.multiple === 'true') {
-                const archive = archiver('zip');
-                res.attachment('download.zip');
-                archive.pipe(res);
-
-                const files = Array.isArray(req.query.files) ? req.query.files : [req.query.files];
-                files.forEach(file => {
-                    archive.file(path.join(UPLOAD_DIR, file), { name: file });
-                });
-
-                archive.finalize();
-            } else {
-                res.download(filePath);
-            }
+            res.download(filePath);
         } catch (err) {
             res.status(404).send('File not found');
         }
-    } else {
-        console.log(req.query.file);
+    } else { //下载多个文件
+        res.zip(
+            JSON.parse(req.query.files).map(file => {
+                return {
+                    path: path.join(UPLOAD_DIR, file),
+                    name: file.split('/')[file.split('/').length - 1]
+                }
+            }),
+            `download-${dayjs().format('YYYY-MM-DD HH-mm-ss')}.zip`
+        );
+        // const archive = archiver('zip');
+        // res.attachment('download.zip');
+        // archive.pipe(res);
+        // const files = Array.isArray(req.query.files) ? req.query.files : [req.query.files];
+        // files.forEach(file => {
+        //     archive.file(path.join(UPLOAD_DIR, file), { name: file });
+        // });
+        // archive.finalize();
     }
 }
 
