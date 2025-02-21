@@ -120,7 +120,7 @@ exports.stats = async (req, res) => {
         const totalSize = await calcSize(UPLOAD_DIR);
         res.json({ totalSize });
     } catch (err) {
-        res.status(500).send('统计失败');
+        res.status(500).json('Calc Wrong');
     }
 }
 

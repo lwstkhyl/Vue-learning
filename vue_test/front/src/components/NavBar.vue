@@ -1,22 +1,35 @@
 <template>
     <div class="nav-bar">
         <div class="auth-buttons">
-        <el-button v-if="!isLoggedIn" class="el-button el-button--primary" @click="login">登录</el-button>
-        <el-button v-else @click="logout">退出</el-button>
+            <template v-if="!isLoggedIn">
+                <el-button type="primary" @click="showLogin">登录</el-button>
+            </template>
+            <template v-else>
+                <el-button type="danger" @click="logout()">退出登录</el-button>
+            </template>
         </div>
+        <!-- 添加登录弹窗组件 -->
+        <login-modal ref="loginModal" />
     </div>
 </template>
 
 <script>
+import LoginModal from './LoginModal.vue'
+import {mapState, mapGetters, mapActions, mapMutations} from 'vuex';
+
 export default {
-    props:["isLoggedIn"],
+    components: { LoginModal },
+    computed:{
+        ...mapState('auth', {isLoggedIn: 'token'}),
+    },
     methods: {
-        login() {
-            this.$router.push('/login');
+        ...mapMutations('auth', ['LOGOUT', ]),
+        showLogin() {
+            this.$refs.loginModal.show()
         },
         async logout() {
-            this.$store.commit('LOGOUT');
-            this.$router.push('/login');
+            this.LOGOUT();
+            // window.location.reload();
         }
     }
 }

@@ -11,10 +11,7 @@ import MyMain from '../views/MyMain.vue'
 export default new VueRouter({
     routes: [
         {
-            path: '/login',
-            component: MyLogin
-        },
-        {
+            name: 'file',
             path: '/file',
             component: MyMain,
             props: route => ({
