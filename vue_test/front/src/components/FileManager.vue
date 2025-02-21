@@ -40,7 +40,7 @@
           icon="el-icon-refresh" 
           :loading="loadingStates.refresh"
           :disabled="loadingStates.refresh"
-          @click="handleRefresh()"
+          @click="handleRefresh"
         ></el-button>
         <!-- 新建文件夹 -->
         <el-button 
@@ -115,7 +115,7 @@
         element-loading-text="加载中"
         element-loading-spinner="el-icon-loading"
         element-loading-background="rgba(0, 0, 0, 0.2)"
-        :empty-text="loadingStates.fileList ? '...' : '此目录中无文件'"
+        :empty-text="loadingStates.fileList ? '...' : emptyText"
       >
         <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="name" label="名称">
@@ -177,6 +177,7 @@ export default {
   data() {
     return {
       files: [], //文件列表
+      emptyText: '...', //文件列表为空/加载失败时显示的文本
       currentDir: this.currentPath, //当前目录
       totalSize: null, //总占用空间
       selectedFiles: [], //表格中已选中的文件
@@ -212,12 +213,13 @@ export default {
               params: { path: this.currentDir }
             })
             this.files = res.data.files
-            // 更新URL
-            this.$router.push({ 
+            this.emptyText = '此目录中无文件';
+            this.$router.push({ // 更新URL
               query: { path: this.currentDir } 
             })
           } catch (err) {
             this.files = [];
+            this.emptyText = '加载失败，请重试';
             this.$message.error('加载文件列表失败')
           }
         }
@@ -245,7 +247,12 @@ export default {
     async handleRefresh(){
       await this.withLoading({
         type: 'refresh',
-        fn: this.loadFiles
+        fn: async () => {
+          await Promise.all([
+            this.loadFiles(),
+            this.updateTotalSize()
+          ]);
+        }
       });
     },
 
