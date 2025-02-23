@@ -13,80 +13,25 @@
       </div>
     </el-dialog>
 
-    <!-- 上传区域 -->
-    <el-upload
-      v-show="isLoggedIn"
-      class="upload-demo"
-      drag
-      action="#"
-      :show-file-list="false"
-      :multiple="true"
-      :before-upload="beforeUpload"
-    >
-      <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-      <div class="el-upload__text">拖拽或<em>点击上传文件</em></div>
-    </el-upload>
-    <el-dialog 
-      title="上传文件列表" 
-      @close="handleRefresh(); uploadFilesList = [];"
-      :visible="!!uploadFilesList.filter(file=>file.status!=='success').length" 
-    >
-      <el-table :data="uploadFilesList" style="width: 100%" >
-        <el-table-column prop="name" :show-overflow-tooltip="true" label="名称">
-          <template v-slot="{ row }">
-              <i class='el-icon-document'></i>
-              {{ row.name }}
-          </template>
-        </el-table-column>
-        <el-table-column width="300" prop="name" label="是否成功">
-          <template v-slot="{ row }">
-            <template v-if="row.status==='success'">上传成功！</template>
-            <template v-else-if="row.status==='error'">上传失败!</template>
-            <el-progress v-else :percentage="row.progress" />
-          </template>
-        </el-table-column>
-        <el-table-column width="120" prop="size" label="大小">
-          <template v-slot="{ row }">
-            {{ formatSize(row.size) }}
-          </template>
-        </el-table-column>
-        <el-table-column width="120" prop="speed" label="上传速度">
-          <template v-slot="{ row }">
-            {{ formatSpeed(row.speed) }}
-          </template>
-        </el-table-column>
-        <el-table-column width="120" prop="time" label="剩余时间">
-          <template v-slot="{ row }">
-            {{ formatTime_hms(row.time) }}
-          </template>
-        </el-table-column>
-        <el-table-column width="120" prop="handle" label="操作">
-          <template v-slot="{ row, $index }">
-            <el-button 
-              v-if="row.status !== 'uploading'"
-              type="danger" plain
-              size="mini"
-              @click="uploadFilesList.splice($index, 1)"
-            >隐藏该文件</el-button>
-            <el-button
-              v-else
-              type="danger" 
-              size="mini"
-              @click="try{row.cancel();uploadFilesList.splice($index, 1)}catch{Message({ message: '取消上传失败', type: 'error' })}"
-            >取消上传</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div slot="footer" style="text-align: center;">
-        <el-button 
-          type="danger" 
-          size="mini"
-          @click="uploadFilesList = []"
-        >清空列表</el-button>
-      </div>
+    <!-- 上传和上传队列 -->
+    <el-row type="flex" class="row-bg " justify="space-between" align="middle">
+      <!-- 上传区域 -->
+      <!-- <el-upload
+        v-show="isLoggedIn"
+        class="upload-demo"
+        drag
+        multiple
+        action="#"
+        :http-request="handleUpload"
+        :show-file-list="false"
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">拖拽或<em>点击上传文件</em></div>
+      </el-upload> -->
+      <FileUpload :loadFiles="loadFiles" :updateTotalSize="updateTotalSize"/>
 
-    </el-dialog>
-
+      
+    </el-row>
     <!-- 刷新/下载和删除选中/总占用空间 -->
     <el-row type="flex" class="row-bg" justify="space-between" align="middle" :gutter="20">
       <el-col :span="16">
@@ -136,7 +81,7 @@
         >
           <el-breadcrumb-item 
             v-show="loadingStates.fileList" 
-          ><p class="loading">加载中<i>...</i></p></el-breadcrumb-item>
+          >加载中...</el-breadcrumb-item>
           <template v-if="!loadingStates.fileList">
             <el-breadcrumb-item 
               v-show="pathParts.length && !loadingStates.fileList" 
@@ -167,11 +112,12 @@
         @row-click="rowClick"  
         :row-style="rowStyle" 
         :row-class-name="rowClassName"
+        v-loading="loadingStates.fileList"
+        element-loading-text="加载中"
+        element-loading-spinner="el-icon-loading"
+        element-loading-background="rgba(0, 0, 0, 0.2)"
+        :empty-text="loadingStates.fileList ? '...' : emptyText"
       >
-        <div slot="empty">
-          <p v-if="loadingStates.fileList" class="loading">加载中<i>...</i></p>
-          <p v-else>{{emptyText}}</p>
-        </div>
         <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="name" label="名称">
           <template v-slot="{ row }">
@@ -219,30 +165,27 @@
 </template>
 
 <script>
-import axios from 'axios'
 import {mapState, mapGetters, mapActions, mapMutations} from 'vuex';
-import { Message } from 'element-ui';
-import {baseURL, timeout} from '../../config/config'
+import {baseURL} from '../../config/config'
 import request from '../api/request';
 import {encodeFileName} from '../utils/crypto';
-import {formatSize, formatTime, formatSpeed, formatTime_hms} from '../utils/formatters';
-// import FileUpload from './FileUpload.vue'
+import {formatSize, formatTime} from '../utils/formatters';
+import FileUpload from './FileUpload.vue'
 
 export default {
   name: 'FileManager',
-  // components: { FileUpload,  },
+  components: { FileUpload, },
   props: ['currentPath'],
   data() {
     return {
       files: [], //文件列表
-      emptyText: '加载中...', //文件列表为空/加载失败时显示的文本
+      emptyText: '...', //文件列表为空/加载失败时显示的文本
       currentDir: this.currentPath, //当前目录
       totalSize: null, //总占用空间
       selectedFiles: [], //表格中已选中的文件
-      visible: false, //新建文件夹窗口
+      visible: false, //新建文件夹
       folderName: '', //新建文件夹名称
-      uploadFilesList: [], //上传文件列表
-      formatSize, formatTime, formatSpeed, formatTime_hms, //格式化函数
+      formatSize, formatTime, //格式化函数
     }
   },
 
@@ -255,7 +198,8 @@ export default {
   },
 
   async mounted() {
-    this.handleRefresh();
+    this.loadFiles();
+    this.updateTotalSize();
   },
 
   methods: {
@@ -332,32 +276,7 @@ export default {
     },
     
     //上传文件
-    beforeUpload(file) {
-      const fileList = {}
-      for (const key in file) {
-        fileList[key] = file[key]
-      }
-      this.uploadFilesList.push({ ...fileList, progress: 0, status: 'uploading' }) // 文件上传状态status:uploading、success、error 
-      this.httpRequest(file, parms => { 
-        this.showProgress(fileList, parms)
-      })
-      return false// 阻止 el-upload的默认上传
-    },
-    showProgress(file, parms) {
-      const { progress, status, time, speed, cancel } = parms
-      const arr = [...this.uploadFilesList].map(items => {
-        if (items.uid === file.uid) {
-          items.progress = progress
-          items.status = status
-          items.time = time
-          items.speed = speed
-          items.cancel = cancel
-        }
-        return items
-      })
-      this.uploadFilesList = [...arr]
-    },
-    async httpRequest(file, callback) {
+    async handleUpload({ file }) {
       // 编码文件名
       const encodedFile = new File([file], encodeFileName(file.name), {
         type: file.type,
@@ -366,40 +285,22 @@ export default {
       const formData = new FormData();
       formData.append('files', encodedFile);
       formData.append('path', encodeURIComponent(this.currentDir));
-      // 声明计算进度/速度/剩余时间的变量
-      let progress = 0; //初始进度
-      let lastLoaded = 0; //上一时刻已上传的大小
-      let lastTime = Date.now(); //上一时刻的时间
-      let cancel = null;
-      request.post('/upload', formData, {
-        headers: { 
-          'Content-Type': 'multipart/form-data;charset=UTF-8',
-          'Authorization': `Bearer ${this.token}`
-        },
-        timeout: 0, //取消超时限制
-        cancelToken: new axios.CancelToken(c => cancel = c),
-        onUploadProgress: progressEvent => {
-          const { loaded, total } = progressEvent; //当前已上传的大小、文件总大小
-          const currentTime = Date.now(); //当前时间
-          const timeDiff = (currentTime - lastTime) / 1000; //时间差
-          const speed = (loaded - lastLoaded) / timeDiff; //速度
-          lastLoaded = loaded; 
-          lastTime = currentTime; //更新当前时间和已上传大小
-          const time = (total - loaded) / speed; //剩余时间
-          progress = (loaded / total * 100) | 0; //进度
-          callback({ 
-            progress, 
-            status: 'uploading', 
-            speed, 
-            time: parseInt(time), 
-            cancel,
-          })
-        }
-      }).then(() => { // 成功状态
-        callback({ progress, status: 'success' })
-      }).catch(() => { // 失败状态
-        callback({ progress, status: 'error' })
-      });
+      let isSuccess = true;
+      try {
+        await request.post('/upload', formData, {
+          headers: { 
+            'Content-Type': 'multipart/form-data;charset=UTF-8',
+            'Authorization': `Bearer ${this.token}`
+          },
+        });
+        this.$message.success('上传成功');
+      } catch (err) {
+        this.$message.error('上传失败');
+        isSuccess = false;
+      }
+      if(!isSuccess) return;
+      this.loadFiles();
+      this.updateTotalSize();
     },
     
     //创建文件夹
@@ -422,7 +323,8 @@ export default {
             this.$message.error(`创建失败${err.response?'：'+err.response.data.error: ''}`);
           }
           if(!isSuccess) return;
-          this.handleRefresh();
+          this.loadFiles();
+          this.updateTotalSize();
         }
       });
     },
@@ -441,7 +343,8 @@ export default {
             this.$message.error('删除失败');
           }
           if(!isSuccess) return;
-          this.handleRefresh();
+          this.loadFiles();
+          this.updateTotalSize();
         }
       });
     },
@@ -464,7 +367,8 @@ export default {
           ));
           if(isSuccess) this.$message.success('删除成功');
           else return this.$message.error(`删除选中文件失败`); 
-          this.handleRefresh();
+          this.loadFiles();
+          this.updateTotalSize();
         }
       });
     },
@@ -543,22 +447,18 @@ export default {
 }
 </script>
 <style>
-/* 上传区域100%宽度 */
 .upload-demo, .el-upload, .el-upload-dragger{
   width: 100% !important;
 }
-/* 文件列表 */
 .file-item {
   padding: 5px;
 }
 .file-item-folder{
   cursor: pointer;
 }
-/* 路径导航 */
 .path-navigation{
   margin: 10px;
 }
-/* 路径导航链接可点击 */
 .el-breadcrumb__inner {
   cursor: pointer;
 }
@@ -568,7 +468,17 @@ export default {
 .click-a .el-breadcrumb__inner{
   color: #09AAFF;
 }
-/* 总占用空间文字 */
+
+.el-table__body tr:hover>td{
+    background-color: hsla(201, 100%, 66%, 0.356) !important;
+}
+
+
+
+.el-radio:focus:not(.is-focus):not(:active):not(.is-disabled) .el-radio__inner {
+    box-shadow: none;
+}
+
 .stat{
   font-family: "Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","微软雅黑",Arial,sans-serif;
   font-size: 16px;
@@ -580,32 +490,5 @@ export default {
   color: #909399;
   font-weight: bold;
   font-style: normal;
-}
-/* 表格加载中文字 */
-.loading i {
-    display: inline-block; 
-    height: 1em;
-    line-height: 1;
-    text-align: left;
-    vertical-align: -.25em;
-    overflow: hidden;
-}
-.loading i::before {
-    display: block;
-    content: '...\A..\A.';
-    white-space: pre-wrap;
-    animation: dot 1s infinite step-start both;
-}
-@keyframes dot {
-    33% { transform: translateY(-2em); }
-    66% { transform: translateY(-1em); }
-}
-/* 表格单元格hover */
-.el-table__body tr:hover>td{
-    background-color: hsla(201, 100%, 66%, 0.356) !important;
-}
-/* 取消多选框选中动画 */
-.el-checkbox__inner, .el-checkbox__inner::after{
-  transition: transform 0s !important;
 }
 </style>

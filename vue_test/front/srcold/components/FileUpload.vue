@@ -13,10 +13,10 @@
         type="file"
         ref="fileInput"
         multiple
+        webkitdirectory
         @change="handleFileSelect"
         style="display: none;"
       >
-        <!-- webkitdirectory -->
       <div class="hint-text">或将文件/文件夹拖拽到此区域</div>
     </div>
 
@@ -57,8 +57,7 @@
 </template>
 
 <script>
-// import axios from 'axios';
-import request from '../api/request';
+import axios from 'axios';
 import {formatSize, formatSpeed} from '../utils/formatters';
 
 export default {
@@ -76,14 +75,6 @@ export default {
       this.$refs.fileInput.click();
     },
 
-    dragover() {
-      this.isDragover = true;
-    },
-
-    dragleave() {
-      this.isDragover = false;
-    },
-
     // 处理文件选择
     async handleFileSelect(e) {
       const files = Array.from(e.target.files);
@@ -93,11 +84,10 @@ export default {
 
     // 处理拖放文件
     async drop(e) {
-      this.isDragover = false; // 重置拖拽状态
+      this.isDragover = false;
       const items = e.dataTransfer.items;
       const files = [];
 
-      // 递归处理目录结构
       const traverseDirectory = async (entry, path = '') => {
         if (entry.isFile) {
           return new Promise(resolve => {
@@ -119,7 +109,6 @@ export default {
         }
       };
 
-      // 处理每个拖拽项
       for (const item of items) {
         const entry = item.webkitGetAsEntry();
         if (entry) await traverseDirectory(entry);
@@ -157,7 +146,7 @@ export default {
       formData.append('files', fileObj.file);
       formData.append('path', fileObj.relativePath);
 
-      const CancelToken = request.CancelToken;
+      const CancelToken = axios.CancelToken;
       const source = CancelToken.source();
       this.cancelTokens[index] = source;
 
@@ -167,7 +156,7 @@ export default {
       try {
         fileObj.status = 'uploading';
         
-        await request.post('/api/upload', formData, {
+        await axios.post('/api/upload', formData, {
         onUploadProgress: progressEvent => {
             const { loaded, total } = progressEvent;
             const currentTime = Date.now();
@@ -182,14 +171,14 @@ export default {
             loaded,
             total,
             speed
-          });
+            });
         },
         cancelToken: source.token
         });
 
         fileObj.status = 'success';
     } catch (err) {
-        if (request.isCancel(err)) {
+        if (axios.isCancel(err)) {
         fileObj.status = 'canceled';
         } else {
         fileObj.status = 'exception';

@@ -33,7 +33,4 @@ export default {
 input[aria-hidden="true"] {
     display: none !important;
 }
-.el-radio:focus:not(.is-focus):not(:active):not(.is-disabled) .el-radio__inner {
-    box-shadow: none;
-}
 </style>
